@@ -16,7 +16,7 @@ public class Main extends Application {
         Scene scene = new Scene(root, 900, 600);
         scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
 
-        primaryStage.setTitle("Bengkel Management System");
+        primaryStage.setTitle("PAKAROTO APP");
         primaryStage.setScene(scene);
         primaryStage.setFullScreen(true);
         primaryStage.show();

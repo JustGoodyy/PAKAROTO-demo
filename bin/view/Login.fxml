@@ -5,14 +5,15 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
-<?import javafx.scene.layout.HBox?> <?import javafx.scene.image.ImageView?>
-<?import javafx.scene.image.Image?>
 
-<StackPane styleClass="login-root" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.LoginController">
+<StackPane prefHeight="530.0" prefWidth="555.0" style="-fx-background-image: url(&quot;/Image/PAKAROTO.png&quot;);;" styleClass="login-root" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.LoginController">
 
-    <VBox fx:id="loginCard" alignment="TOP_LEFT" maxHeight="-Infinity" maxWidth="360" spacing="18" styleClass="login-card">
+    <VBox fx:id="loginCard" alignment="TOP_LEFT" maxHeight="-Infinity" maxWidth="360" spacing="18" style="-fx-background-image: url(&quot;/Image/PAKAROTO.png&quot;);;" styleClass="login-card">
 
         <VBox alignment="CENTER" spacing="8.0">
    <children>
@@ -21,7 +22,7 @@
          <children>
             <ImageView fx:id="imglogo" fitWidth="24.0" preserveRatio="true">
                <image>
-                  <Image url="@../image/223440.png" />
+                  <Image url="@../Image/PAKAROTO.png" />
                </image>
             </ImageView>
             
