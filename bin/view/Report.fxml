@@ -50,7 +50,7 @@
                            </children>
                         </VBox>
                         <Region HBox.hgrow="ALWAYS" />
-                        <Button fx:id="btnGenerate" onAction="#handleGenerate" styleClass="btn-primary" text="Terapkan Filter" />
+                        <Button fx:id="btnGenerate" onAction="#handleGenerate" styleClass="btn-primary" text="Filter Tanggal" />
                    </children>
                 </HBox>
         
