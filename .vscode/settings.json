@@ -1,0 +1,13 @@
+{
+    "java.project.sourcePaths": [
+        "src",
+        "resources"
+    ],
+    "java.project.outputPath": "bin",
+    "java.project.referencedLibraries": [
+        "d:\\Download\\BengkelApp\\BengkelApp\\lib\\resources.jar",
+        "d:\\Download\\BengkelApp\\BengkelApp\\lib\\xstream-1.4.20.jar",
+        "lib/resources.jar",
+        "lib/xstream-1.4.20.jar"
+    ]
+}

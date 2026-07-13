@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="controller.MainLayoutController"
+            styleClass="page-bg">
+
+    <left>
+        <VBox styleClass="sidebar" prefWidth="220" BorderPane.alignment="TOP_LEFT">
+
+            <VBox styleClass="sidebar-brand" alignment="CENTER" spacing="8">
+                <padding>
+                    <Insets top="20" bottom="10" left="15" right="15"/>
+                </padding>
+                <children>
+                    <ImageView fx:id="imgLogo" fitHeight="60.0" fitWidth="120.0" preserveRatio="true">
+                        <image>
+                            <Image url="@../resources/image/PAKAROTO.png"/>
+                        </image>
+                    </ImageView>
+                    
+                    <Label text="BENGKEL OS" styleClass="sidebar-brand-title"/>
+                    <Label text="WORKSHOP CONSOLE" styleClass="sidebar-brand-sub"/>
+                </children>
+            </VBox>
+
+            <VBox styleClass="sidebar-user">
+                <Label fx:id="lblActiveUser" styleClass="sidebar-user-label" text="—"/>
+            </VBox>
+
+            <VBox fx:id="sidebarMenuBox" spacing="0">
+                <padding><Insets top="10" bottom="10"/></padding>
+                <Button text="Dashboard" styleClass="nav-button" onAction="#goToDashboard"/>
+                <Button text="Inventaris Spare Part" styleClass="nav-button" onAction="#goToInventory"/>
+                <Button text="Kasir" styleClass="nav-button" onAction="#goToCashier"/>
+                <Button text="Laporan Keuangan" styleClass="nav-button" onAction="#goToReport"/>
+            </VBox>
+
+            <Region VBox.vgrow="ALWAYS"/>
+
+            <Button fx:id="btnLogout" text="Keluar" styleClass="logout-button" onAction="#handleLogout"/>
+        </VBox>
+    </left>
+
+    <center>
+        <StackPane fx:id="contentArea" styleClass="content-area" BorderPane.alignment="CENTER"/>
+    </center>
+</BorderPane>

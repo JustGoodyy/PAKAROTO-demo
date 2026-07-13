@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.ScrollPane?>
+
+<ScrollPane fitToWidth="true" styleClass="scroll-pane"
+            xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="controller.DashboardController">
+    <VBox styleClass="page-bg" spacing="24">
+        <padding><Insets top="28" right="32" bottom="28" left="32"/></padding>
+
+        <VBox spacing="2">
+            <Label text="Dashboard" styleClass="h1"/>
+            <Label text="Ringkasan operasional bengkel hari ini." styleClass="body-text"/>
+        </VBox>
+
+        <!-- Cash in / out gauges -->
+        <HBox spacing="18">
+            <VBox styleClass="stat-card, stat-card-in" spacing="8" HBox.hgrow="ALWAYS">
+                <Label text="KAS MASUK HARI INI" styleClass="stat-label"/>
+                <Label fx:id="lblCashInToday" styleClass="stat-value-in" text="Rp 0"/>
+            </VBox>
+            <VBox styleClass="stat-card, stat-card-out" spacing="8" HBox.hgrow="ALWAYS">
+                <Label text="KAS KELUAR HARI INI" styleClass="stat-label"/>
+                <Label fx:id="lblCashOutToday" styleClass="stat-value-out" text="Rp 0"/>
+            </VBox>
+        </HBox>
+
+        <HBox spacing="18">
+            <!-- Low stock warning -->
+            <VBox styleClass="panel" spacing="12" HBox.hgrow="ALWAYS">
+                <Label text="Peringatan Stok Menipis" styleClass="h2"/>
+                <TableView fx:id="tableLowStock" prefHeight="260" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colLowStockNama" text="Nama Part" prefWidth="220"/>
+                        <TableColumn fx:id="colLowStockJumlah" text="Stok" prefWidth="100"/>
+                    </columns>
+                    <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/></columnResizePolicy>
+                </TableView>
+            </VBox>
+
+            <!-- Recent transactions -->
+            <VBox styleClass="panel" spacing="12" HBox.hgrow="ALWAYS">
+                <Label text="Transaksi Terbaru" styleClass="h2"/>
+                <TableView fx:id="tableRecent" prefHeight="260" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colRecentId" text="No. Nota" prefWidth="120"/>
+                        <TableColumn fx:id="colRecentCustomer" text="Customer" prefWidth="150"/>
+                        <TableColumn fx:id="colRecentTotal" text="Total" prefWidth="120"/>
+                    </columns>
+                    <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/></columnResizePolicy>
+                </TableView>
+            </VBox>
+        </HBox>
+        <Region prefHeight="4"/>
+    </VBox>
+</ScrollPane>

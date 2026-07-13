@@ -1,0 +1,1696 @@
+﻿=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\app\Main.java ===
+package app;
+
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+
+/**
+ * app.Main
+ * Entry point. Boots straight into the Login screen.    
+ * No build tool: compiled/run manually, see compile.sh / run.sh.
+ */
+public class Main extends Application {
+
+    @Override
+    public void start(Stage primaryStage) throws Exception {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/Login.fxml"));
+        Parent root = loader.load();
+
+        Scene scene = new Scene(root, 900, 600);
+        scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+
+        primaryStage.setTitle("Bengkel Management System");
+        primaryStage.setScene(scene);
+        primaryStage.setFullScreen(true);
+        primaryStage.show();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\controller\CashierController.java ===
+package controller;
+
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import model.Nota;
+import model.NotaItem;
+import model.Pengeluaran;
+import model.SparePart;
+import util.AnimationUtil;
+import util.XmlDatabase;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.UUID;
+
+/**
+ * Controller for view/Cashier.fxml â€” Menu 2: CASHIER TRANSACTIONS
+ * Two independent flows on one screen:
+ *  1) Service receipt (cart of SparePart -> NotaItem -> Nota, deducts stock)
+ *  2) Operational expense (Pengeluaran)
+ * Update/Delete are intentionally absent here: once paid, a Nota is final.
+ */
+public class CashierController {
+
+    // --- Cart / Receipt section ---
+    @FXML private ComboBox<SparePart> cbSparepart;
+    @FXML private TextField txtQty;
+    @FXML private TableView<NotaItem> tableCart;
+    @FXML private TableColumn<NotaItem, String> colCartNama;
+    @FXML private TableColumn<NotaItem, Integer> colCartQty;
+    @FXML private TableColumn<NotaItem, Double> colCartHarga;
+    @FXML private TableColumn<NotaItem, Double> colCartSubtotal;
+    @FXML private TextField txtCustomer;
+    @FXML private DatePicker dpTanggalNota;
+    @FXML private TextField txtJasaMekanik;
+    @FXML private Label lblTotal;
+    @FXML private Label lblStatus;
+    @FXML private Button btnAddToCart;
+    @FXML private Button btnSimpanNota;
+
+    // --- Expense section ---
+    @FXML private TextField txtKeteranganBiaya;
+    @FXML private ComboBox<String> cbKategoriBiaya;
+    @FXML private DatePicker dpTanggalBiaya;
+    @FXML private TextField txtJumlahBiaya;
+    @FXML private Label lblStatusBiaya;
+
+    private final XmlDatabase<SparePart> sparepartDb = new XmlDatabase<>("data/sparepart.xml", SparePart.class);
+    private final XmlDatabase<Nota> notaDb = new XmlDatabase<>("data/nota.xml", Nota.class);
+    private final XmlDatabase<Pengeluaran> pengeluaranDb = new XmlDatabase<>("data/pengeluaran.xml", Pengeluaran.class);
+
+    private ArrayList<SparePart> spareparts;
+    private final ObservableList<NotaItem> cart = FXCollections.observableArrayList();
+
+    @FXML
+    public void initialize() {
+        spareparts = sparepartDb.loadAll();
+        cbSparepart.setItems(FXCollections.observableArrayList(spareparts)); // SparePart.toString() drives display
+
+        colCartNama.setCellValueFactory(new PropertyValueFactory<>("namaPart"));
+        colCartQty.setCellValueFactory(new PropertyValueFactory<>("qty"));
+        colCartHarga.setCellValueFactory(new PropertyValueFactory<>("hargaSatuan"));
+        colCartSubtotal.setCellValueFactory(new PropertyValueFactory<>("subtotal"));
+        tableCart.setItems(cart);
+
+        cbKategoriBiaya.setItems(FXCollections.observableArrayList(
+                "Listrik", "Gaji", "Sewa", "Perawatan Alat", "Lain-lain"));
+
+        // Default both date pickers to today; user can change to backdate a transaction
+        dpTanggalNota.setValue(LocalDate.now());
+        dpTanggalBiaya.setValue(LocalDate.now());
+
+        // Recompute total any time cart or jasa mekanik fee changes (real-time total)
+        cart.addListener((javafx.collections.ListChangeListener<NotaItem>) c -> recomputeTotal());
+        txtJasaMekanik.textProperty().addListener((obs, o, n) -> recomputeTotal());
+    }
+
+    @FXML
+    public void handleAddToCart() {
+        AnimationUtil.pulse(btnAddToCart);
+        SparePart selected = cbSparepart.getValue();
+        if (selected == null) {
+            lblStatus.setText("Pilih spare part terlebih dahulu.");
+            return;
+        }
+        int qty;
+        try {
+            qty = Integer.parseInt(txtQty.getText().trim());
+        } catch (Exception e) {
+            lblStatus.setText("Qty harus berupa angka.");
+            return;
+        }
+        if (qty <= 0) {
+            lblStatus.setText("Qty harus lebih dari 0.");
+            return;
+        }
+        if (qty > selected.getStok()) {
+            lblStatus.setText("Stok tidak mencukupi (sisa " + selected.getStok() + ").");
+            return;
+        }
+
+        cart.add(new NotaItem(selected.getKode(), selected.getNama(), qty, selected.getHargaJual()));
+        txtQty.clear();
+        lblStatus.setText("");
+    }
+
+    @FXML
+    public void handleRemoveFromCart() {
+        NotaItem selected = tableCart.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            cart.remove(selected);
+        }
+    }
+
+    private void recomputeTotal() {
+        double totalItems = cart.stream().mapToDouble(NotaItem::getSubtotal).sum();
+        double jasa = 0;
+        try {
+            jasa = Double.parseDouble(txtJasaMekanik.getText().trim());
+        } catch (Exception ignored) { }
+        lblTotal.setText(String.format("Rp %,.0f", totalItems + jasa));
+    }
+
+    @FXML
+    public void handleSimpanNota() {
+        AnimationUtil.pulse(btnSimpanNota);
+        if (cart.isEmpty()) {
+            lblStatus.setText("Keranjang masih kosong.");
+            return;
+        }
+        if (txtCustomer.getText().trim().isEmpty()) {
+            lblStatus.setText("Nama customer wajib diisi.");
+            return;
+        }
+
+        double jasa;
+        try {
+            jasa = txtJasaMekanik.getText().trim().isEmpty() ? 0 : Double.parseDouble(txtJasaMekanik.getText().trim());
+        } catch (NumberFormatException e) {
+            lblStatus.setText("Biaya jasa mekanik harus berupa angka.");
+            return;
+        }
+
+        if (dpTanggalNota.getValue() == null) {
+            lblStatus.setText("Pilih tanggal transaksi terlebih dahulu.");
+            return;
+        }
+
+        // 1) Persist the Nota
+        Nota nota = new Nota(
+                "NOTA-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
+                dpTanggalNota.getValue(),
+                txtCustomer.getText().trim(),
+                jasa,
+                new ArrayList<>(cart)
+        );
+        ArrayList<Nota> allNota = notaDb.loadAll();
+        allNota.add(nota);
+        notaDb.saveAll(allNota);
+
+        // 2) Deduct stock in sparepart.xml for every item sold
+        for (NotaItem item : cart) {
+            for (SparePart sp : spareparts) {
+                if (sp.getKode().equals(item.getKodePart())) {
+                    sp.setStok(sp.getStok() - item.getQty());
+                }
+            }
+        }
+        sparepartDb.saveAll(spareparts);
+
+        // 3) Reset the form for the next customer
+        cart.clear();
+        txtCustomer.clear();
+        txtJasaMekanik.clear();
+        dpTanggalNota.setValue(LocalDate.now());
+        cbSparepart.setItems(FXCollections.observableArrayList(spareparts));
+        lblStatus.setText("Nota " + nota.getIdNota() + " tersimpan. Total Rp " + String.format("%,.0f", nota.getTotalBayar()));
+    }
+
+    @FXML
+    public void handleSimpanBiaya() {
+        if (txtKeteranganBiaya.getText().trim().isEmpty() || cbKategoriBiaya.getValue() == null || txtJumlahBiaya.getText().trim().isEmpty()) {
+            lblStatusBiaya.setText("Semua field biaya wajib diisi.");
+            return;
+        }
+        if (dpTanggalBiaya.getValue() == null) {
+            lblStatusBiaya.setText("Pilih tanggal pengeluaran terlebih dahulu.");
+            return;
+        }
+        double jumlah;
+        try {
+            jumlah = Double.parseDouble(txtJumlahBiaya.getText().trim());
+        } catch (NumberFormatException e) {
+            lblStatusBiaya.setText("Jumlah harus berupa angka.");
+            return;
+        }
+
+        Pengeluaran p = new Pengeluaran(
+                "EXP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
+                dpTanggalBiaya.getValue(),
+                txtKeteranganBiaya.getText().trim(),
+                cbKategoriBiaya.getValue(),
+                jumlah
+        );
+        ArrayList<Pengeluaran> all = pengeluaranDb.loadAll();
+        all.add(p);
+        pengeluaranDb.saveAll(all);
+
+        txtKeteranganBiaya.clear();
+        cbKategoriBiaya.setValue(null);
+        txtJumlahBiaya.clear();
+        dpTanggalBiaya.setValue(LocalDate.now());
+        lblStatusBiaya.setText("Pengeluaran tercatat.");
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\controller\DashboardController.java ===
+package controller;
+
+import javafx.collections.FXCollections;
+import javafx.fxml.FXML;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.PropertyValueFactory;
+import model.Nota;
+import model.Pengeluaran;
+import model.SparePart;
+import util.XmlDatabase;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import javafx.scene.image.ImageView;
+
+/**
+ * Controller for view/Dashboard.fxml â€” Menu 4: DASHBOARD / SUMMARY
+ * Purely Read-Only: only ever filters data already in the XML files.
+ */
+public class DashboardController {
+
+    @FXML private TableView<SparePart> tableLowStock;
+    @FXML private TableColumn<SparePart, String> colLowStockNama;
+    @FXML private TableColumn<SparePart, Integer> colLowStockJumlah;
+
+    @FXML private TableView<Nota> tableRecent;
+    @FXML private TableColumn<Nota, String> colRecentId;
+    @FXML private TableColumn<Nota, String> colRecentCustomer;
+    @FXML private TableColumn<Nota, Double> colRecentTotal;
+
+    @FXML private Label lblCashInToday;
+    @FXML private Label lblCashOutToday;
+    @FXML private ImageView imglogo;
+    private static final int LOW_STOCK_THRESHOLD = 5;
+
+    @FXML
+    public void initialize() {
+        colLowStockNama.setCellValueFactory(new PropertyValueFactory<>("nama"));
+        colLowStockJumlah.setCellValueFactory(new PropertyValueFactory<>("stok"));
+
+        colRecentId.setCellValueFactory(new PropertyValueFactory<>("idNota"));
+        colRecentCustomer.setCellValueFactory(new PropertyValueFactory<>("namaCustomer"));
+        colRecentTotal.setCellValueFactory(new PropertyValueFactory<>("totalBayar"));
+
+        loadLowStockWarning();
+        loadRecentTransactions();
+        loadTodaySummary();
+    }
+
+    private void loadLowStockWarning() {
+        ArrayList<SparePart> all = new XmlDatabase<SparePart>("data/sparepart.xml", SparePart.class).loadAll();
+        ArrayList<SparePart> lowStock = new ArrayList<>();
+        for (SparePart sp : all) {
+            if (sp.getStok() < LOW_STOCK_THRESHOLD) lowStock.add(sp);
+        }
+        tableLowStock.setItems(FXCollections.observableArrayList(lowStock));
+    }
+
+    private void loadRecentTransactions() {
+        ArrayList<Nota> all = new XmlDatabase<Nota>("data/nota.xml", Nota.class).loadAll();
+        all.sort(Comparator.comparing(Nota::getTanggal).reversed());
+        ArrayList<Nota> last5 = new ArrayList<>(all.subList(0, Math.min(5, all.size())));
+        tableRecent.setItems(FXCollections.observableArrayList(last5));
+    }
+
+    private void loadTodaySummary() {
+        LocalDate today = LocalDate.now();
+
+        ArrayList<Nota> allNota = new XmlDatabase<Nota>("data/nota.xml", Nota.class).loadAll();
+        double cashIn = allNota.stream()
+                .filter(n -> n.getTanggal().equals(today))
+                .mapToDouble(Nota::getTotalBayar)
+                .sum();
+
+        ArrayList<Pengeluaran> allBiaya = new XmlDatabase<Pengeluaran>("data/pengeluaran.xml", Pengeluaran.class).loadAll();
+        double cashOut = allBiaya.stream()
+                .filter(p -> p.getTanggal().equals(today))
+                .mapToDouble(Pengeluaran::getJumlah)
+                .sum();
+
+        lblCashInToday.setText(String.format("Rp %,.0f", cashIn));
+        lblCashOutToday.setText(String.format("Rp %,.0f", cashOut));
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\controller\InventoryController.java ===
+package controller;
+
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import model.SparePart;
+import util.AnimationUtil;
+import util.XmlDatabase;
+
+import java.util.ArrayList;
+
+/**
+ * Controller for view/Inventory.fxml â€” Menu 1: SPARE PART INVENTORY
+ * Full CRUD cycle backed by data/sparepart.xml via XmlDatabase.
+ *
+ * Data flow: ArrayList<SparePart> (Model/XML level)  <-->  ObservableList<SparePart> (JavaFX UI level)
+ */
+public class InventoryController {
+
+    @FXML private TableView<SparePart> tableSparepart;
+    @FXML private TableColumn<SparePart, String> colKode;
+    @FXML private TableColumn<SparePart, String> colNama;
+    @FXML private TableColumn<SparePart, String> colKategori;
+    @FXML private TableColumn<SparePart, Integer> colStok;
+    @FXML private TableColumn<SparePart, Double> colHarga;
+
+    @FXML private TextField txtSearch;
+
+    @FXML private TextField txtKode;
+    @FXML private TextField txtNama;
+    @FXML private ComboBox<String> cbKategori;
+    @FXML private TextField txtStok;
+    @FXML private TextField txtHargaJual;
+    @FXML private TextField txtHargaModal;
+    @FXML private Label lblFormStatus;
+
+    @FXML private javafx.scene.control.Button btnAdd;
+    @FXML private javafx.scene.control.Button btnUpdate;
+    @FXML private javafx.scene.control.Button btnDelete;
+
+    private final XmlDatabase<SparePart> db = new XmlDatabase<>("data/sparepart.xml", SparePart.class);
+
+    // The "ArrayList at Model/XML level" â€” bridged into ObservableList below
+    private ArrayList<SparePart> masterList;
+    private final ObservableList<SparePart> observableList = FXCollections.observableArrayList();
+
+    @FXML
+    public void initialize() {
+        colKode.setCellValueFactory(new PropertyValueFactory<>("kode"));
+        colNama.setCellValueFactory(new PropertyValueFactory<>("nama"));
+        colKategori.setCellValueFactory(new PropertyValueFactory<>("kategori"));
+        colStok.setCellValueFactory(new PropertyValueFactory<>("stok"));
+        colHarga.setCellValueFactory(new PropertyValueFactory<>("hargaJual"));
+
+        cbKategori.setItems(FXCollections.observableArrayList(
+                "Mesin", "Kelistrikan", "Ban & Roda", "Rem", "Oli & Cairan", "Aksesoris"));
+
+        tableSparepart.setItems(observableList);
+
+        // Populate the form when a row is selected (for Update/Delete)
+        tableSparepart.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
+            if (newSel != null) fillForm(newSel);
+        });
+
+        refreshFromDisk();
+
+        // Live search by name or code
+        txtSearch.textProperty().addListener((obs, oldVal, newVal) -> applyFilter(newVal));
+    }
+
+    private void refreshFromDisk() {
+        masterList = db.loadAll();
+        observableList.setAll(masterList);
+    }
+
+    private void applyFilter(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            observableList.setAll(masterList);
+            return;
+        }
+        String kw = keyword.toLowerCase();
+        ArrayList<SparePart> filtered = new ArrayList<>();
+        for (SparePart sp : masterList) {
+            if (sp.getKode().toLowerCase().contains(kw) || sp.getNama().toLowerCase().contains(kw)) {
+                filtered.add(sp);
+            }
+        }
+        observableList.setAll(filtered);
+    }
+
+    // ---------- CREATE ----------
+    @FXML
+    public void handleAdd() {
+        AnimationUtil.pulse(btnAdd);
+        if (!validateForm()) return;
+
+        String kode = txtKode.getText().trim();
+        for (SparePart sp : masterList) {
+            if (sp.getKode().equalsIgnoreCase(kode)) {
+                lblFormStatus.setText("Kode sudah dipakai. Gunakan kode lain.");
+                return;
+            }
+        }
+
+        SparePart baru = new SparePart(
+                kode,
+                txtNama.getText().trim(),
+                cbKategori.getValue(),
+                Integer.parseInt(txtStok.getText().trim()),
+                Double.parseDouble(txtHargaJual.getText().trim()),
+                parseModalOrDefault()
+        );
+
+        masterList.add(baru);
+        db.saveAll(masterList);
+        observableList.setAll(masterList);
+        clearForm();
+        lblFormStatus.setText("Item berhasil ditambahkan.");
+    }
+
+    // ---------- UPDATE ----------
+    @FXML
+    public void handleUpdate() {
+        AnimationUtil.pulse(btnUpdate);
+        SparePart selected = tableSparepart.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            lblFormStatus.setText("Pilih item pada tabel terlebih dahulu.");
+            return;
+        }
+        if (!validateForm()) return;
+
+        selected.setNama(txtNama.getText().trim());
+        selected.setKategori(cbKategori.getValue());
+        selected.setStok(Integer.parseInt(txtStok.getText().trim()));
+        selected.setHargaJual(Double.parseDouble(txtHargaJual.getText().trim()));
+        selected.setHargaModal(parseModalOrDefault());
+
+        db.saveAll(masterList);
+        observableList.setAll(masterList);
+        lblFormStatus.setText("Item berhasil diperbarui.");
+    }
+
+    // ---------- DELETE ----------
+    @FXML
+    public void handleDelete() {
+        AnimationUtil.pulse(btnDelete);
+        SparePart selected = tableSparepart.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            lblFormStatus.setText("Pilih item pada tabel terlebih dahulu.");
+            return;
+        }
+        masterList.remove(selected);
+        db.saveAll(masterList);
+        observableList.setAll(masterList);
+        clearForm();
+        lblFormStatus.setText("Item berhasil dihapus.");
+    }
+
+    @FXML
+    public void handleClear() {
+        clearForm();
+    }
+
+    // ---------- helpers ----------
+    private void fillForm(SparePart sp) {
+        txtKode.setText(sp.getKode());
+        txtKode.setDisable(true); // kode is the primary key: not editable after creation
+        txtNama.setText(sp.getNama());
+        cbKategori.setValue(sp.getKategori());
+        txtStok.setText(String.valueOf(sp.getStok()));
+        txtHargaJual.setText(String.valueOf(sp.getHargaJual()));
+        txtHargaModal.setText(String.valueOf(sp.getHargaModal()));
+    }
+
+    private void clearForm() {
+        txtKode.clear();
+        txtKode.setDisable(false);
+        txtNama.clear();
+        cbKategori.setValue(null);
+        txtStok.clear();
+        txtHargaJual.clear();
+        txtHargaModal.clear();
+        tableSparepart.getSelectionModel().clearSelection();
+        lblFormStatus.setText("");
+    }
+
+    private double parseModalOrDefault() {
+        try {
+            if (!txtHargaModal.getText().trim().isEmpty()) {
+                return Double.parseDouble(txtHargaModal.getText().trim());
+            }
+        } catch (NumberFormatException ignored) { }
+        // Assumption fallback: 60% of selling price when cost price isn't provided
+        return Double.parseDouble(txtHargaJual.getText().trim()) * 0.6;
+    }
+
+    private boolean validateForm() {
+        if (txtKode.getText().trim().isEmpty() || txtNama.getText().trim().isEmpty()
+                || cbKategori.getValue() == null || txtStok.getText().trim().isEmpty()
+                || txtHargaJual.getText().trim().isEmpty()) {
+            lblFormStatus.setText("Semua field wajib diisi.");
+            return false;
+        }
+        try {
+            Integer.parseInt(txtStok.getText().trim());
+            Double.parseDouble(txtHargaJual.getText().trim());
+        } catch (NumberFormatException e) {
+            lblFormStatus.setText("Stok dan Harga harus berupa angka.");
+            return false;
+        }
+        return true;
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\controller\LoginController.java ===
+package controller;
+
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+import model.User;
+import model.UserSession;
+import util.AnimationUtil;
+import util.XmlDatabase;
+
+import java.util.ArrayList;
+
+/**
+ * Controller for view/Login.fxml
+ * Verifies credentials against data/users.xml and, on success, hands off
+ * to MainLayout.fxml (the shell that hosts the Sidebar + Dashboard).
+ */
+public class LoginController {
+
+    @FXML private VBox loginCard;
+    @FXML private Button btnLogin;
+    @FXML private TextField txtUsername;
+    @FXML private PasswordField txtPassword;
+    @FXML private Label lblError;
+
+    private final XmlDatabase<User> userDb = new XmlDatabase<>("data/users.xml", User.class);
+
+    @FXML
+    public void initialize() {
+        AnimationUtil.fadeIn(loginCard, 450); // welcoming fade-in on first launch
+    }
+
+    @FXML
+    public void handleLogin(ActionEvent event) {
+        AnimationUtil.pulse(btnLogin); // tactile feedback on every click, success or not
+
+        String username = txtUsername.getText().trim();
+        String password = txtPassword.getText().trim();
+
+        if (username.isEmpty() || password.isEmpty()) {
+            lblError.setText("Username dan password wajib diisi.");
+            lblError.setVisible(true);
+            AnimationUtil.shake(loginCard);
+            return;
+        }
+
+        ArrayList<User> users = userDb.loadAll();
+        User matched = null;
+        for (User u : users) {
+            if (u.getUsername().equalsIgnoreCase(username) && u.getPassword().equals(password)) {
+                matched = u;
+                break;
+            }
+        }
+
+        if (matched == null) {
+            lblError.setText("Username atau password salah.");
+            lblError.setVisible(true);
+            AnimationUtil.shake(loginCard);
+            return;
+        }
+
+        // Store identity globally for the rest of the app
+        UserSession.getInstance().setCurrentUser(matched);
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/MainLayout.fxml"));
+            Parent root = loader.load();
+
+            Stage stage = (Stage) txtUsername.getScene().getWindow();
+            Scene scene = new Scene(root, 1100, 700);
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            stage.setScene(scene);
+            stage.setFullScreen(true);
+            stage.setTitle("Bengkel Management System - " + matched.getRole());
+            AnimationUtil.fadeIn(root, 350);
+        } catch (Exception e) {
+            e.printStackTrace();
+            lblError.setText("Gagal membuka aplikasi: " + e.getMessage());
+            lblError.setVisible(true);
+            AnimationUtil.shake(loginCard);
+        }
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\controller\MainLayoutController.java ===
+package controller;
+
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+import model.User;
+import model.UserSession;
+import util.AnimationUtil;
+import javafx.scene.image.ImageView;
+import javafx.scene.image.Image;
+
+/**
+ * Controller for view/MainLayout.fxml
+ * Owns the sidebar + the "contentArea" StackPane. Clicking a sidebar button
+ * swaps the center content WITHOUT opening a new window, per the spec.
+ *
+ * ROLE-BASED ACCESS CONTROL:
+ *  - ADMIN  -> full access to Dashboard, Inventory, Cashier, Report
+ *  - KASIR  -> Dashboard + Cashier only
+ * Enforced in two layers:
+ *   1) UI layer  (applyRoleRestrictions): hides Inventory/Report buttons for Kasir
+ *   2) Nav layer (goToInventory/goToReport): refuses to load the view even if
+ *      invoked some other way, so the restriction isn't just "hide the button".
+ */
+public class MainLayoutController {
+
+    @FXML private StackPane contentArea;
+    @FXML private Label lblActiveUser;
+    @FXML private VBox sidebarMenuBox;
+    @FXML private Button btnLogout;
+
+    // NEW: give each sidebar button an fx:id in MainLayout.fxml so we can
+    // show/hide them individually (see FXML notes below).
+    @FXML private Button btnDashboard;
+    @FXML private Button btnInventory;
+    @FXML private Button btnCashier;
+    @FXML private Button btnReport;
+    @FXML private ImageView imgLogo;
+
+    private static final String ROLE_ADMIN = "ADMIN";
+
+    @FXML
+    public void initialize() {
+        if (UserSession.getInstance().isLoggedIn()) {
+            User current = UserSession.getInstance().getCurrentUser();
+            lblActiveUser.setText(current.getUsername() + " (" + current.getRole() + ")");
+        }
+
+        // Micro-interaction: sidebar buttons grow slightly on hover
+        for (Node child : sidebarMenuBox.getChildren()) {
+            if (child instanceof Button) {
+                AnimationUtil.attachHoverScale(child, 1.04);
+            }
+        }
+        AnimationUtil.attachHoverScale(btnLogout, 1.04);
+
+        applyRoleRestrictions();
+
+        loadView("/view/Dashboard.fxml"); // Dashboard greets the user first, per spec
+    }
+    
+
+    /** Hides menu items the current role isn't allowed to see. */
+    private void applyRoleRestrictions() {
+        if (!isAdmin()) {
+            hide(btnInventory);
+            hide(btnReport);
+        }
+    }
+
+    private void hide(Button b) {
+        if (b == null) return;
+        b.setVisible(false);
+        b.setManaged(false); // collapse the space too, not just invisible
+    }
+
+    private boolean isAdmin() {
+        return UserSession.getInstance().isLoggedIn()
+                && ROLE_ADMIN.equalsIgnoreCase(UserSession.getInstance().getCurrentUser().getRole());
+    }
+
+    @FXML public void goToDashboard() { loadView("/view/Dashboard.fxml"); }
+
+    @FXML
+    public void goToInventory() {
+        if (!isAdmin()) { denyAccess(); return; }
+        loadView("/view/Inventory.fxml");
+    }
+
+    @FXML public void goToCashier() { loadView("/view/Cashier.fxml"); }
+
+    @FXML
+    public void goToReport() {
+        if (!isAdmin()) { denyAccess(); return; }
+        loadView("/view/Report.fxml");
+    }
+
+    /** Called when a non-admin role somehow triggers a restricted nav action. */
+    private void denyAccess() {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Akses Ditolak");
+        alert.setHeaderText(null);
+        alert.setContentText("Menu ini hanya dapat diakses oleh Admin/Owner.");
+        alert.showAndWait();
+        loadView("/view/Dashboard.fxml");
+    }
+
+    @FXML
+    public void handleLogout() {
+        UserSession.getInstance().logout();
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/Login.fxml"));
+            Parent root = loader.load();
+            Stage stage = (Stage) contentArea.getScene().getWindow();
+            Scene scene = new Scene(root, 900, 600);
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            stage.setScene(scene);
+            stage.setFullScreen(true);
+            stage.setTitle("Bengkel Management System");
+            AnimationUtil.fadeIn(root, 350);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadView(String fxmlPath) {
+        try {
+            Node view = FXMLLoader.load(getClass().getResource(fxmlPath));
+            contentArea.getChildren().setAll(view);
+            AnimationUtil.fadeInSlideUp(view, 260);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\controller\ReportController.java ===
+package controller;
+
+import javafx.collections.FXCollections;
+import javafx.fxml.FXML;
+import javafx.geometry.Pos;
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.PieChart;
+import javafx.scene.chart.XYChart;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import model.JurnalHarian;
+import model.Nota;
+import model.NotaItem;
+import model.Pengeluaran;
+import model.SparePart;
+import util.AnimationUtil;
+import util.XmlDatabase;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+public class ReportController {
+
+    @FXML private DatePicker dpStart;
+    @FXML private DatePicker dpEnd;
+    @FXML private javafx.scene.control.Button btnGenerate;
+
+    @FXML private Label lblTotalIncome;
+    @FXML private Label lblTotalExpense;
+    @FXML private Label lblNetProfit;
+
+    @FXML private BarChart<String, Number> chartRevenue;
+    @FXML private PieChart chartExpenseComposition;
+
+    @FXML private TableView<JurnalHarian> tableLedger;
+    @FXML private TableColumn<JurnalHarian, LocalDate> colTanggal;
+    @FXML private TableColumn<JurnalHarian, String> colKeterangan;
+    @FXML private TableColumn<JurnalHarian, String> colJenis;
+    @FXML private TableColumn<JurnalHarian, Double> colMasuk;
+    @FXML private TableColumn<JurnalHarian, Double> colKeluar;
+    @FXML private TableColumn<JurnalHarian, Void> colAksi;
+
+    private final XmlDatabase<Nota> notaDb = new XmlDatabase<>("data/nota.xml", Nota.class);
+    private final XmlDatabase<Pengeluaran> pengeluaranDb = new XmlDatabase<>("data/pengeluaran.xml", Pengeluaran.class);
+    private final XmlDatabase<SparePart> sparepartDb = new XmlDatabase<>("data/sparepart.xml", SparePart.class);
+    private final XmlDatabase<JurnalHarian> jurnalDb = new XmlDatabase<>("data/jurnal.xml", JurnalHarian.class);
+
+    private static final String JENIS_MASUK = "PEMASUKAN";
+    private static final String JENIS_KELUAR = "PENGELUARAN";
+
+    @FXML
+    public void initialize() {
+        colTanggal.setCellValueFactory(new PropertyValueFactory<>("tanggal"));
+        colKeterangan.setCellValueFactory(new PropertyValueFactory<>("keterangan"));
+        colJenis.setCellValueFactory(new PropertyValueFactory<>("jenis"));
+        colMasuk.setCellValueFactory(new PropertyValueFactory<>("pemasukan"));
+        colKeluar.setCellValueFactory(new PropertyValueFactory<>("pengeluaran"));
+
+        if (colAksi != null) {
+            setupAksiColumn();
+        }
+
+        dpStart.setValue(LocalDate.now().withDayOfMonth(1));
+        dpEnd.setValue(LocalDate.now());
+
+        handleGenerate();
+    }
+    
+
+    /** Wires up the Clean Minimalist Icon buttons for each ledger row. */
+    private void setupAksiColumn() {
+        colAksi.setCellFactory(col -> new TableCell<JurnalHarian, Void>() {
+            // Menggunakan Unicode Simbol Representatif (Edit: ðŸ“, Hapus: ðŸ—‘)
+            private final Button btnEdit = new Button("ðŸ“");
+            private final Button btnDelete = new Button("ðŸ—‘");
+            private final HBox box = new HBox(12, btnEdit, btnDelete); // Gap renggang 12px
+
+            {
+                // Pengaturan Gaya CSS Kustom agar Tombol Berupa Ikon Bersih Tanpa Box Kaku
+                btnEdit.getStyleClass().add("btn-action-icon");
+                btnEdit.setTooltip(new Tooltip("Edit Entri"));
+                
+                btnDelete.getStyleClass().add("btn-action-icon");
+                // Memberikan penanda warna merah khusus untuk aksi hapus langsung via inline text style
+                btnDelete.setStyle("-fx-text-fill: #e53935;"); 
+                btnDelete.setTooltip(new Tooltip("Hapus Entri"));
+
+                btnEdit.setOnAction(e -> {
+                    JurnalHarian row = getTableView().getItems().get(getIndex());
+                    handleEditLedgerEntry(row);
+                });
+                btnDelete.setOnAction(e -> {
+                    JurnalHarian row = getTableView().getItems().get(getIndex());
+                    handleDeleteLedgerEntry(row);
+                });
+                
+                box.setAlignment(Pos.CENTER);
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(box);
+                }
+            }
+        });
+    }
+
+    @FXML
+    public void handleGenerate() {
+        if (btnGenerate != null) AnimationUtil.pulse(btnGenerate);
+        LocalDate start = dpStart.getValue();
+        LocalDate end = dpEnd.getValue();
+        if (start == null || end == null || start.isAfter(end)) return;
+
+        ArrayList<Nota> allNota = notaDb.loadAll();
+        ArrayList<Pengeluaran> allBiaya = pengeluaranDb.loadAll();
+        ArrayList<SparePart> allParts = sparepartDb.loadAll();
+
+        ArrayList<SparePart> partsSortedByKode = new ArrayList<>(allParts);
+        partsSortedByKode.sort(Comparator.comparing(SparePart::getKode));
+
+        ArrayList<Nota> notaInRange = new ArrayList<>();
+        for (Nota n : allNota) {
+            if (!n.getTanggal().isBefore(start) && !n.getTanggal().isAfter(end)) notaInRange.add(n);
+        }
+        ArrayList<Pengeluaran> biayaInRange = new ArrayList<>();
+        for (Pengeluaran p : allBiaya) {
+            if (!p.getTanggal().isBefore(start) && !p.getTanggal().isAfter(end)) biayaInRange.add(p);
+        }
+
+        double totalIncome = notaInRange.stream().mapToDouble(Nota::getTotalBayar).sum();
+        double totalExpenseOps = biayaInRange.stream().mapToDouble(Pengeluaran::getJumlah).sum();
+
+        double totalCogs = 0;
+        for (Nota n : notaInRange) {
+            for (NotaItem item : n.getItems()) {
+                double modal = findHargaModalByKode(partsSortedByKode, item.getKodePart());
+                if (modal < 0) {
+                    modal = item.getHargaSatuan() * 0.6;
+                }
+                totalCogs += item.getQty() * modal;
+            }
+        }
+        double totalExpense = totalExpenseOps + totalCogs;
+        double netProfit = totalIncome - totalExpense;
+
+        lblTotalIncome.setText(String.format("Rp %,.0f", totalIncome));
+        lblTotalExpense.setText(String.format("Rp %,.0f", totalExpense));
+        lblNetProfit.setText(String.format("Rp %,.0f", netProfit));
+
+        buildRevenueChart(notaInRange);
+        buildExpensePieChart(biayaInRange);
+        buildLedger(notaInRange, biayaInRange);
+    }
+
+    private double findHargaModalByKode(ArrayList<SparePart> sortedParts, String kode) {
+        int lo = 0, hi = sortedParts.size() - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            int cmp = sortedParts.get(mid).getKode().compareTo(kode);
+            if (cmp == 0) {
+                return sortedParts.get(mid).getHargaModal();
+            } else if (cmp < 0) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return -1;
+    }
+
+    private void buildRevenueChart(ArrayList<Nota> notaInRange) {
+        Map<LocalDate, Double> perDay = new HashMap<>();
+        for (Nota n : notaInRange) {
+            perDay.merge(n.getTanggal(), n.getTotalBayar(), Double::sum);
+        }
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        series.setName("Pendapatan Harian");
+        perDay.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> series.getData().add(new XYChart.Data<>(e.getKey().toString(), e.getValue())));
+
+        chartRevenue.getData().clear();
+        chartRevenue.getData().add(series);
+    }
+
+    private void buildExpensePieChart(ArrayList<Pengeluaran> biayaInRange) {
+        Map<String, Double> perCategory = new HashMap<>();
+        for (Pengeluaran p : biayaInRange) {
+            perCategory.merge(p.getKategori(), p.getJumlah(), Double::sum);
+        }
+        ArrayList<PieChart.Data> slices = new ArrayList<>();
+        perCategory.forEach((kategori, total) -> slices.add(new PieChart.Data(kategori, total)));
+        chartExpenseComposition.setData(FXCollections.observableArrayList(slices));
+    }
+
+    private void buildLedger(ArrayList<Nota> notaInRange, ArrayList<Pengeluaran> biayaInRange) {
+        ArrayList<JurnalHarian> ledger = new ArrayList<>();
+        for (Nota n : notaInRange) {
+            ledger.add(new JurnalHarian(n.getTanggal(), "Nota " + n.getIdNota() + " - " + n.getNamaCustomer(),
+                    JENIS_MASUK, n.getTotalBayar(), 0, n.getIdNota()));
+        }
+        for (Pengeluaran p : biayaInRange) {
+            ledger.add(new JurnalHarian(p.getTanggal(), p.getKeterangan(), JENIS_KELUAR, 0, p.getJumlah(),
+                    p.getIdPengeluaran()));
+        }
+        ledger.sort((a, b) -> a.getTanggal().compareTo(b.getTanggal()));
+
+        tableLedger.setItems(FXCollections.observableArrayList(ledger));
+        jurnalDb.saveAll(ledger);
+    }
+
+    private void handleEditLedgerEntry(JurnalHarian entry) {
+        if (JENIS_MASUK.equals(entry.getJenis())) {
+            editNota(entry.getId());
+        } else {
+            editPengeluaran(entry.getId());
+        }
+    }
+
+    private void handleDeleteLedgerEntry(JurnalHarian entry) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Konfirmasi Hapus");
+        confirm.setHeaderText(null);
+        confirm.setContentText("Yakin ingin menghapus entri ini dari jurnal?\n\"" + entry.getKeterangan() + "\""
+                + (JENIS_MASUK.equals(entry.getJenis()) ? "\n\nStok spare part terkait akan dikembalikan." : ""));
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (!result.isPresent() || result.get() != ButtonType.OK) return;
+
+        if (JENIS_MASUK.equals(entry.getJenis())) {
+            deleteNota(entry.getId());
+        } else {
+            deletePengeluaran(entry.getId());
+        }
+        handleGenerate();
+    }
+
+    private void editNota(String idNota) {
+        ArrayList<Nota> allNota = notaDb.loadAll();
+        Nota target = findNota(allNota, idNota);
+        if (target == null) {
+            showAlert(Alert.AlertType.ERROR, "Data nota tidak ditemukan (mungkin sudah dihapus).");
+            return;
+        }
+
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Edit Nota " + target.getIdNota());
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        TextField txtCustomer = new TextField(target.getNamaCustomer());
+        DatePicker dpTgl = new DatePicker(target.getTanggal());
+        TextField txtJasa = new TextField(String.valueOf(target.getBiayaJasaMekanik()));
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.addRow(0, new Label("Customer:"), txtCustomer);
+        grid.addRow(1, new Label("Tanggal:"), dpTgl);
+        grid.addRow(2, new Label("Biaya Jasa Mekanik:"), txtJasa);
+        Label note = new Label("Catatan: daftar spare part pada nota tidak bisa diubah di sini.\n"
+                + "Untuk mengubah item, hapus nota ini lalu buat nota baru di menu Cashier.");
+        note.setWrapText(true);
+        note.setMaxWidth(320);
+        grid.add(note, 0, 3, 2, 1);
+        dialog.getDialogPane().setContent(grid);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (!result.isPresent() || result.get() != ButtonType.OK) return;
+
+        if (txtCustomer.getText().trim().isEmpty() || dpTgl.getValue() == null) {
+            showAlert(Alert.AlertType.ERROR, "Nama customer dan tanggal wajib diisi.");
+            return;
+        }
+        double jasa;
+        try {
+            jasa = txtJasa.getText().trim().isEmpty() ? 0 : Double.parseDouble(txtJasa.getText().trim());
+        } catch (NumberFormatException e) {
+            showAlert(Alert.AlertType.ERROR, "Biaya jasa mekanik harus berupa angka.");
+            return;
+        }
+
+        target.setNamaCustomer(txtCustomer.getText().trim());
+        target.setTanggal(dpTgl.getValue());
+        target.setBiayaJasaMekanik(jasa);
+        target.recomputeTotal();
+
+        notaDb.saveAll(allNota);
+        handleGenerate();
+    }
+
+    private void deleteNota(String idNota) {
+        ArrayList<Nota> allNota = notaDb.loadAll();
+        Nota target = findNota(allNota, idNota);
+        if (target == null) return;
+
+        ArrayList<SparePart> allParts = sparepartDb.loadAll();
+        for (NotaItem item : target.getItems()) {
+            for (SparePart sp : allParts) {
+                if (sp.getKode().equals(item.getKodePart())) {
+                    sp.setStok(sp.getStok() + item.getQty());
+                }
+            }
+        }
+        sparepartDb.saveAll(allParts);
+
+        allNota.remove(target);
+        notaDb.saveAll(allNota);
+    }
+
+    private Nota findNota(ArrayList<Nota> list, String idNota) {
+        for (Nota n : list) {
+            if (n.getIdNota().equals(idNota)) return n;
+        }
+        return null;
+    }
+
+    private void editPengeluaran(String id) {
+        ArrayList<Pengeluaran> all = pengeluaranDb.loadAll();
+        Pengeluaran target = findPengeluaran(all, id);
+        if (target == null) {
+            showAlert(Alert.AlertType.ERROR, "Data pengeluaran tidak ditemukan (mungkin sudah dihapus).");
+            return;
+        }
+
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Edit Pengeluaran");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        TextField txtKet = new TextField(target.getKeterangan());
+        ComboBox<String> cbKat = new ComboBox<>(FXCollections.observableArrayList(
+                "Listrik", "Gaji", "Sewa", "Perawatan Alat", "Lain-lain"));
+        cbKat.setValue(target.getKategori());
+        DatePicker dpTgl = new DatePicker(target.getTanggal());
+        TextField txtJumlah = new TextField(String.valueOf(target.getJumlah()));
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.addRow(0, new Label("Keterangan:"), txtKet);
+        grid.addRow(1, new Label("Kategori:"), cbKat);
+        grid.addRow(2, new Label("Tanggal:"), dpTgl);
+        grid.addRow(3, new Label("Jumlah:"), txtJumlah);
+        dialog.getDialogPane().setContent(grid);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (!result.isPresent() || result.get() != ButtonType.OK) return;
+
+        if (txtKet.getText().trim().isEmpty() || cbKat.getValue() == null || dpTgl.getValue() == null) {
+            showAlert(Alert.AlertType.ERROR, "Semua field wajib diisi.");
+            return;
+        }
+        double jumlah;
+        try {
+            jumlah = Double.parseDouble(txtJumlah.getText().trim());
+        } catch (NumberFormatException e) {
+            showAlert(Alert.AlertType.ERROR, "Jumlah harus berupa angka.");
+            return;
+        }
+
+        target.setKeterangan(txtKet.getText().trim());
+        target.setKategori(cbKat.getValue());
+        target.setTanggal(dpTgl.getValue());
+        target.setJumlah(jumlah);
+
+        pengeluaranDb.saveAll(all);
+        handleGenerate();
+    }
+
+    private void deletePengeluaran(String id) {
+        ArrayList<Pengeluaran> all = pengeluaranDb.loadAll();
+        all.removeIf(p -> p.getIdPengeluaran().equals(id));
+        pengeluaranDb.saveAll(all);
+    }
+
+    private Pengeluaran findPengeluaran(ArrayList<Pengeluaran> list, String id) {
+        for (Pengeluaran p : list) {
+            if (p.getIdPengeluaran().equals(id)) return p;
+        }
+        return null;
+    }
+
+    private void showAlert(Alert.AlertType type, String msg) {
+        Alert alert = new Alert(type);
+        alert.setHeaderText(null);
+        alert.setContentText(msg);
+        alert.showAndWait();
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\model\JurnalHarian.java ===
+package model;
+
+import java.time.LocalDate;
+
+/**
+ * DTO: JurnalHarian ("Daily Journal")
+ * Built on the fly by ReportController by merging Nota (income) and
+ * Pengeluaran (expense) records into one chronological table for the
+ * General Ledger TableView.
+ *
+ * UPDATE: now also persisted to its own file, data/jurnal.xml, via
+ * XmlDatabase<JurnalHarian>, every time the ledger is (re)built. This is a
+ * derived/cache copy â€” Nota and Pengeluaran remain the source of truth,
+ * jurnal.xml is just a saved snapshot of the merged ledger for the last
+ * generated report range. A no-arg constructor is required by XStream.
+ */
+public class JurnalHarian {
+    private LocalDate tanggal;
+    private String keterangan;
+    private String jenis;       // "PEMASUKAN" or "PENGELUARAN"
+    private double pemasukan;   // > 0 only when jenis == PEMASUKAN
+    private double pengeluaran; // > 0 only when jenis == PENGELUARAN
+    private String id;          // idNota (PEMASUKAN) or idPengeluaran (PENGELUARAN)
+
+    public JurnalHarian() {}
+
+    public JurnalHarian(LocalDate tanggal, String keterangan, String jenis,
+                         double pemasukan, double pengeluaran, String id) {
+        this.tanggal = tanggal;
+        this.keterangan = keterangan;
+        this.jenis = jenis;
+        this.pemasukan = pemasukan;
+        this.pengeluaran = pengeluaran;
+        this.id = id;
+    }
+
+    public LocalDate getTanggal() { return tanggal; }
+    public String getKeterangan() { return keterangan; }
+    public String getJenis() { return jenis; }
+    public double getPemasukan() { return pemasukan; }
+    public double getPengeluaran() { return pengeluaran; }
+    public String getId() { return id; }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\model\Nota.java ===
+package model;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+
+/**
+ * Model: Nota
+ * A finalized service receipt. Persisted to /data/nota.xml.
+ *
+ * NOTE: Originally fully immutable once paid. Setters below were added so
+ * the Financial Report's Ledger screen can offer a limited "Edit" (customer
+ * name, date, mechanic fee) and a "Delete" (which restores stock). The list
+ * of items itself is intentionally NOT editable here â€” changing item
+ * quantities would require re-deducting/re-crediting stock line by line,
+ * which is out of scope; delete + re-create the nota via Cashier for that.
+ */
+public class Nota {
+    private String idNota;
+    private LocalDate tanggal;
+    private String namaCustomer;
+    private double biayaJasaMekanik;
+    private ArrayList<NotaItem> items;
+    private double totalBayar;
+
+    public Nota() {}
+
+    public Nota(String idNota, LocalDate tanggal, String namaCustomer,
+                double biayaJasaMekanik, ArrayList<NotaItem> items) {
+        this.idNota = idNota;
+        this.tanggal = tanggal;
+        this.namaCustomer = namaCustomer;
+        this.biayaJasaMekanik = biayaJasaMekanik;
+        this.items = items;
+        recomputeTotal();
+    }
+
+    public String getIdNota() { return idNota; }
+    public LocalDate getTanggal() { return tanggal; }
+    public String getNamaCustomer() { return namaCustomer; }
+    public double getBiayaJasaMekanik() { return biayaJasaMekanik; }
+    public ArrayList<NotaItem> getItems() { return items; }
+    public double getTotalBayar() { return totalBayar; }
+
+    public void setTanggal(LocalDate tanggal) { this.tanggal = tanggal; }
+    public void setNamaCustomer(String namaCustomer) { this.namaCustomer = namaCustomer; }
+    public void setBiayaJasaMekanik(double biayaJasaMekanik) { this.biayaJasaMekanik = biayaJasaMekanik; }
+
+    /** Recalculates totalBayar from current items + biayaJasaMekanik. Call after any edit. */
+    public void recomputeTotal() {
+        double totalItems = 0;
+        if (items != null) {
+            for (NotaItem it : items) totalItems += it.getSubtotal();
+        }
+        this.totalBayar = totalItems + biayaJasaMekanik;
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\model\NotaItem.java ===
+package model;
+
+/**
+ * Model: NotaItem
+ * One line inside the cashier's "shopping cart" / receipt (Nota).
+ */
+public class NotaItem {
+    private String kodePart;
+    private String namaPart;
+    private int qty;
+    private double hargaSatuan;
+    private double subtotal;
+
+    public NotaItem() {}
+
+    public NotaItem(String kodePart, String namaPart, int qty, double hargaSatuan) {
+        this.kodePart = kodePart;
+        this.namaPart = namaPart;
+        this.qty = qty;
+        this.hargaSatuan = hargaSatuan;
+        this.subtotal = qty * hargaSatuan;
+    }
+
+    public String getKodePart() { return kodePart; }
+    public void setKodePart(String kodePart) { this.kodePart = kodePart; }
+
+    public String getNamaPart() { return namaPart; }
+    public void setNamaPart(String namaPart) { this.namaPart = namaPart; }
+
+    public int getQty() { return qty; }
+    public void setQty(int qty) { this.qty = qty; this.subtotal = qty * hargaSatuan; }
+
+    public double getHargaSatuan() { return hargaSatuan; }
+    public void setHargaSatuan(double hargaSatuan) { this.hargaSatuan = hargaSatuan; this.subtotal = qty * hargaSatuan; }
+
+    public double getSubtotal() { return subtotal; }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\model\Pengeluaran.java ===
+package model;
+
+import java.time.LocalDate;
+
+/**
+ * Model: Pengeluaran
+ * An operational expense entry (electricity, salary, etc.), /data/pengeluaran.xml.
+ */
+public class Pengeluaran {
+    private String idPengeluaran;
+    private LocalDate tanggal;
+    private String keterangan; // e.g. "Listrik", "Gaji Mekanik"
+    private String kategori;
+    private double jumlah;
+
+    public Pengeluaran() {}
+
+    public Pengeluaran(String idPengeluaran, LocalDate tanggal, String keterangan, String kategori, double jumlah) {
+        this.idPengeluaran = idPengeluaran;
+        this.tanggal = tanggal;
+        this.keterangan = keterangan;
+        this.kategori = kategori;
+        this.jumlah = jumlah;
+    }
+
+    public String getIdPengeluaran() { return idPengeluaran; }
+    public LocalDate getTanggal() { return tanggal; }
+    public String getKeterangan() { return keterangan; }
+    public String getKategori() { return kategori; }
+    public double getJumlah() { return jumlah; }
+
+    public void setTanggal(LocalDate tanggal) { this.tanggal = tanggal; }
+    public void setKeterangan(String keterangan) { this.keterangan = keterangan; }
+    public void setKategori(String kategori) { this.kategori = kategori; }
+    public void setJumlah(double jumlah) { this.jumlah = jumlah; }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\model\SparePart.java ===
+package model;
+
+/**
+ * Model: SparePart
+ * One row of the Spare Part Catalog (/data/sparepart.xml).
+ *
+ * NOTE (assumption): the brief only specifies a Selling Price. To let the
+ * Financial Report menu compute a real COGS (Cost of Goods Sold), a
+ * hargaModal (cost/purchase price) field is added. If it is not supplied
+ * on the input form it defaults to 60% of the selling price.
+ */
+public class SparePart {
+    private String kode;        // unique code, e.g. SP-0001
+    private String nama;        // part name
+    private String kategori;    // category (from ComboBox)
+    private int stok;           // current stock
+    private double hargaJual;   // selling price
+    private double hargaModal;  // cost price (assumption, used for COGS)
+
+    public SparePart() {}
+
+    public SparePart(String kode, String nama, String kategori, int stok, double hargaJual, double hargaModal) {
+        this.kode = kode;
+        this.nama = nama;
+        this.kategori = kategori;
+        this.stok = stok;
+        this.hargaJual = hargaJual;
+        this.hargaModal = hargaModal;
+    }
+
+    public String getKode() { return kode; }
+    public void setKode(String kode) { this.kode = kode; }
+
+    public String getNama() { return nama; }
+    public void setNama(String nama) { this.nama = nama; }
+
+    public String getKategori() { return kategori; }
+    public void setKategori(String kategori) { this.kategori = kategori; }
+
+    public int getStok() { return stok; }
+    public void setStok(int stok) { this.stok = stok; }
+
+    public double getHargaJual() { return hargaJual; }
+    public void setHargaJual(double hargaJual) { this.hargaJual = hargaJual; }
+
+    public double getHargaModal() { return hargaModal; }
+    public void setHargaModal(double hargaModal) { this.hargaModal = hargaModal; }
+
+    @Override
+    public String toString() {
+        // Used by the ComboBox in the Cashier screen
+        return kode + " - " + nama + " (Stok: " + stok + ")";
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\model\User.java ===
+package model;
+
+/**
+ * Model: User
+ * Represents one row of /data/users.xml (persisted via XStream).
+ */
+public class User {
+    private String username;
+    private String password;
+    private String role; 
+
+    public User() {}
+
+    public User(String username, String password, String role) {
+        this.username = username;
+        this.password = password;
+        this.role = role;
+    }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\model\UserSession.java ===
+package model;
+
+/**
+ * Model: UserSession
+ * Singleton that stores the identity of the currently logged-in cashier/admin.
+ * Read by every Controller to know "who" is using the app right now.
+ */
+public class UserSession {
+    private static UserSession instance;
+    private User currentUser;
+
+    private UserSession() {}
+
+    public static UserSession getInstance() {
+        if (instance == null) {
+            instance = new UserSession();
+        }
+        return instance;
+    }
+
+    public User getCurrentUser() { 
+        return currentUser; 
+    }
+    public void setCurrentUser(User currentUser) { 
+        this.currentUser = currentUser; 
+    }
+
+    public boolean isLoggedIn() { 
+        return currentUser != null; 
+    }
+
+    public void logout() { 
+        currentUser = null; 
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\util\AnimationUtil.java ===
+package util;
+
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.ScaleTransition;
+import javafx.animation.TranslateTransition;
+import javafx.scene.Node;
+import javafx.util.Duration;
+
+/**
+ * util.AnimationUtil
+ * ------------------
+ * Small, reusable JavaFX animations used across the app to make interactions
+ * feel more alive: content transitions, button feedback, hover effects, and
+ * an error shake. Kept framework-agnostic (plain Node) so any Controller can
+ * call these on any control without extra wiring.
+ */
+public final class AnimationUtil {
+
+    private AnimationUtil() {}
+
+    /** Fades a node in from fully transparent while gently sliding it up a few pixels. */
+    public static void fadeInSlideUp(Node node, double durationMillis) {
+        node.setOpacity(0);
+        node.setTranslateY(14);
+
+        FadeTransition fade = new FadeTransition(Duration.millis(durationMillis), node);
+        fade.setFromValue(0);
+        fade.setToValue(1);
+
+        TranslateTransition slide = new TranslateTransition(Duration.millis(durationMillis), node);
+        slide.setFromY(14);
+        slide.setToY(0);
+
+        new ParallelTransition(fade, slide).play();
+    }
+
+    /** Simple fade-in, no movement â€” good for the login card on first launch. */
+    public static void fadeIn(Node node, double durationMillis) {
+        node.setOpacity(0);
+        FadeTransition fade = new FadeTransition(Duration.millis(durationMillis), node);
+        fade.setFromValue(0);
+        fade.setToValue(1);
+        fade.play();
+    }
+
+    /** Horizontal shake â€” use for invalid login / validation errors. */
+    public static void shake(Node node) {
+        TranslateTransition tt = new TranslateTransition(Duration.millis(55), node);
+        tt.setFromX(0);
+        tt.setByX(10);
+        tt.setCycleCount(6);
+        tt.setAutoReverse(true);
+        tt.setOnFinished(e -> node.setTranslateX(0));
+        tt.play();
+    }
+
+    /** Quick "press" feedback â€” shrink then bounce back. Great on primary action buttons. */
+    public static void pulse(Node node) {
+        ScaleTransition st = new ScaleTransition(Duration.millis(90), node);
+        st.setFromX(1);
+        st.setFromY(1);
+        st.setToX(0.93);
+        st.setToY(0.93);
+        st.setCycleCount(2);
+        st.setAutoReverse(true);
+        st.play();
+    }
+
+    /** Attaches a smooth grow-on-hover / shrink-on-exit effect (used for sidebar buttons). */
+    public static void attachHoverScale(Node node, double hoverScale) {
+        ScaleTransition grow = new ScaleTransition(Duration.millis(120), node);
+        grow.setToX(hoverScale);
+        grow.setToY(hoverScale);
+
+        ScaleTransition shrink = new ScaleTransition(Duration.millis(120), node);
+        shrink.setToX(1.0);
+        shrink.setToY(1.0);
+
+        node.setOnMouseEntered(e -> { shrink.stop(); grow.playFromStart(); });
+        node.setOnMouseExited(e -> { grow.stop(); shrink.playFromStart(); });
+    }
+}
+
+
+
+=== FILE: D:\Kuliah\Semester 2\Project Tugas Besar\Latest bengkel\BengkelApp\src\util\XmlDatabase.java ===
+package util;
+
+import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.io.xml.StaxDriver;
+import com.thoughtworks.xstream.security.AnyTypePermission;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+
+/**
+ * util.XmlDatabase<T>
+ * -------------------
+ * This is the "No SQL, .xml files + XStream" data layer required by the spec.
+ * Every feature (Inventory, Cashier, Reports...) talks to its .xml file only
+ * through this class, which bridges plain ArrayList<T> (Model layer) to disk.
+ *
+ * Uses xstream.toXML()/fromXML() (NOT createObjectOutputStream/InputStream,
+ * which wraps content in an extra <object-stream> element) so the file on
+ * disk is a plain <list>...</list> â€” human-readable and hand-editable.
+ *
+ * Usage:
+ *   XmlDatabase<SparePart> db = new XmlDatabase<>("data/sparepart.xml", SparePart.class);
+ *   ArrayList<SparePart> list = db.loadAll();
+ *   db.saveAll(list);
+ */
+public class XmlDatabase<T> {
+
+    private final XStream xstream;
+    private final String filePath;
+
+    public XmlDatabase(String filePath, Class<T> clazz) {
+        this.filePath = filePath;
+        this.xstream = new XStream(new StaxDriver());
+        // XStream 1.4.18+ requires explicit permissions
+        xstream.addPermission(AnyTypePermission.ANY);
+        // Nicer tag names in the generated XML, e.g. <sparepart> instead of the FQCN
+        xstream.alias(clazz.getSimpleName().toLowerCase(), clazz);
+        xstream.alias("list", ArrayList.class);
+    }
+
+    /** Reads the whole file into memory as an ArrayList (empty list if file is missing). */
+    @SuppressWarnings("unchecked")
+    public ArrayList<T> loadAll() {
+        File file = new File(filePath);
+        if (!file.exists()) {
+            return new ArrayList<>();
+        }
+        try (FileReader reader = new FileReader(file)) {
+            Object result = xstream.fromXML(reader);
+            return result != null ? (ArrayList<T>) result : new ArrayList<>();
+        } catch (Exception e) {
+            System.err.println("[XmlDatabase] Failed to read " + filePath + ": " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /** Overwrites the file with the full in-memory list ("save on every CRUD action"). */
+    public void saveAll(ArrayList<T> data) {
+        try {
+            File file = new File(filePath);
+            if (file.getParentFile() != null) {
+                file.getParentFile().mkdirs();
+            }
+            try (FileWriter writer = new FileWriter(file)) {
+                xstream.toXML(data, writer);
+            }
+        } catch (Exception e) {
+            System.err.println("[XmlDatabase] Failed to write " + filePath + ": " + e.getMessage());
+        }
+    }
+}
+
+
+

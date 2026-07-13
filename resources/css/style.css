@@ -1,0 +1,704 @@
+/* =========================================================================
+   BENGKEL MANAGEMENT SYSTEM — Stylesheet
+   Design direction: "the workshop counter, not the dashboard"
+   Palette   : paper background, steel-blue structure, workshop-amber accent
+   Type      : Space Grotesk (display) / Inter (body) / IBM Plex Mono (data)
+   ========================================================================= */
+
+.root {
+    /* -- palette (looked-up colors, reused via -fx-*: -token;) -- */
+    -bg:            #F7F4EE;
+    -surface:       #FFFFFF;
+    -surface-alt:   #FBF8F2;
+    -border:        #E6E0D3;
+    -border-strong: #D6CDBB;
+
+    -ink:           #262220;
+    -ink-soft:      #6E6660;
+    -ink-faint:     #A39A8E;
+
+    -steel:         #33475A;
+    -steel-dark:    #223440;
+    -steel-soft:    #5D7488;
+
+    -amber:         #D9822B;
+    -amber-dark:    #B96A1C;
+    -amber-tint:    #FBEADA;
+
+    -moss:          #4C8C6B;
+    -moss-tint:     #E4F0E9;
+    -brick:         #B2483A;
+    -brick-tint:    #F6E4E1;
+
+    -fx-font-family: "Inter";
+    -fx-background-color: -bg;
+    -fx-text-fill: -ink;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Type scale                                                              */
+/* ---------------------------------------------------------------------- */
+
+.h1 {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -steel-dark;
+}
+.h2 {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -steel-dark;
+}
+.eyebrow {
+    -fx-font-family: "Inter";
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink-faint;
+}
+.body-text {
+    -fx-font-family: "Inter";
+    -fx-font-size: 13px;
+    -fx-text-fill: -ink-soft;
+}
+.mono, .mono-lg {
+    -fx-font-family: "IBM Plex Mono";
+    -fx-text-fill: -ink;
+}
+.mono-lg {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Generic layout surfaces                                                 */
+/* ---------------------------------------------------------------------- */
+
+.page-bg { -fx-background-color: -bg; }
+
+.panel {
+    -fx-background-color: -surface;
+    -fx-background-radius: 4px;
+    -fx-border-radius: 4px;
+    -fx-border-color: -border;
+    -fx-border-width: 1px;
+    -fx-padding: 20px;
+}
+
+.panel-alt {
+    -fx-background-color: -surface-alt;
+    -fx-background-radius: 4px;
+    -fx-border-radius: 4px;
+    -fx-border-color: -border;
+    -fx-border-width: 1px;
+    -fx-padding: 16px;
+}
+
+.divider-h { -fx-background-color: -border; -fx-pref-height: 1px; -fx-max-height: 1px; }
+.divider-v { -fx-background-color: -border; -fx-pref-width: 1px; -fx-max-width: 1px; }
+
+/* ---------------------------------------------------------------------- */
+/* Login screen                                                            */
+/* ---------------------------------------------------------------------- */
+
+.login-root {
+    -fx-background-color: linear-gradient(to bottom right, -steel-dark, -steel 65%, -steel-soft);
+}
+
+.login-card {
+    -fx-background-color: -surface;
+    -fx-background-radius: 6px;
+    -fx-border-radius: 6px;
+    -fx-border-color: -border;
+    -fx-border-width: 1px;
+    -fx-padding: 40px 36px;
+    -fx-effect: dropshadow(gaussian, rgba(20,28,34,0.35), 28, 0.15, 0, 10);
+}
+
+.login-mark {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -amber-dark;
+    -fx-letter-spacing: 2px;
+}
+
+.login-title {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -steel-dark;
+}
+
+.login-subtitle {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -ink-soft;
+}
+
+.error-label {
+    -fx-text-fill: -brick;
+    -fx-font-size: 12px;
+    -fx-background-color: -brick-tint;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px 10px;
+}
+/* Update styling untuk Login Screen */
+.login-field {
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: #d1d5db;
+    -fx-padding: 10 12 10 12;
+}
+.login-field:focused {
+    -fx-border-color: #d97706; /* Warna orange brand mu */
+    -fx-effect: dropshadow(three-pass-box, rgba(217,119,6,0.2), 6, 0, 0, 0);
+}
+.login-button {
+    -fx-background-color: linear-gradient(to bottom, #e08226, #cc6d13);
+    -fx-background-radius: 8;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+.login-button:hover {
+    -fx-background-color: #cc6d13;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Main shell / sidebar (the "pegboard")                                   */
+/* ---------------------------------------------------------------------- */
+
+.sidebar {
+    -fx-background-color: -steel-dark;
+    -fx-padding: 0;
+}
+
+.sidebar-brand {
+    -fx-padding: 26px 22px 22px 22px;
+}
+
+.sidebar-brand-title {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.sidebar-brand-sub {
+    -fx-font-size: 10.5px;
+    -fx-text-fill: rgba(255,255,255,0.45);
+    -fx-font-weight: bold;
+}
+
+.sidebar-user {
+    -fx-padding: 14px 22px;
+    -fx-background-color: rgba(255,255,255,0.05);
+}
+
+.sidebar-user-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: rgba(255,255,255,0.75);
+}
+/* Gaya tombol menu samping di bagian sidebar */
+.sidebar-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #94a3b8; /* Warna teks abu-abu semi transparan saat tidak aktif */
+    -fx-alignment: center-left;
+    -fx-padding: 10px 16px 10px 16px;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+
+.sidebar-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.05); /* Highlight tipis saat dilewati */
+    -fx-text-fill: #ffffff;
+}
+
+/* Berikan class ini pada tombol menu yang sedang aktif terbuka */
+.sidebar-button-active {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-border-color: transparent transparent transparent #d97706; /* Garis vertikal oranye penanda menu aktif di kiri */
+    -fx-border-width: 0 0 0 4px;
+}
+
+/* Pegboard nav buttons: flat, left-aligned, amber hook-indicator on hover/active */
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: rgba(255,255,255,0.72);
+    -fx-font-size: 13.5px;
+    -fx-font-weight: bold;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 13px 22px;
+    -fx-pref-width: 220px;
+    -fx-background-radius: 0;
+    -fx-border-width: 0 0 0 3px;
+    -fx-border-color: transparent;
+    -fx-cursor: hand;
+}
+.nav-button:hover {
+    -fx-background-color: rgba(255,255,255,0.06);
+    -fx-text-fill: white;
+    -fx-border-color: -amber;
+}
+.nav-button:armed {
+    -fx-background-color: rgba(255,255,255,0.10);
+}
+/* apply this style class to the currently-active menu item from code, if desired */
+.nav-button-active {
+    -fx-background-color: rgba(217,130,43,0.14);
+    -fx-text-fill: white;
+    -fx-border-color: -amber;
+}
+
+.logout-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: rgba(255,255,255,0.5);
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-border-color: rgba(255,255,255,0.18);
+    -fx-border-width: 1px 0 0 0;
+    -fx-padding: 14px 22px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-pref-width: 220px;
+    -fx-background-radius: 0;
+    -fx-cursor: hand;
+}
+.logout-button:hover {
+    -fx-text-fill: -brick;
+}
+
+.content-area {
+    -fx-background-color: -bg;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Buttons                                                                  */
+/* ---------------------------------------------------------------------- */
+
+.button {
+    -fx-font-family: "Inter";
+    -fx-font-size: 12.5px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-padding: 9px 18px;
+}
+
+.btn-primary {
+    -fx-background-color: -amber;
+    -fx-text-fill: white;
+}
+.btn-primary:hover { -fx-background-color: -amber-dark; }
+.btn-primary:pressed { -fx-background-color: derive(-amber-dark, -10%); }
+
+.btn-secondary {
+    -fx-background-color: -surface;
+    -fx-text-fill: -steel-dark;
+    -fx-border-color: -border-strong;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+}
+.btn-secondary:hover { -fx-background-color: -surface-alt; }
+
+.btn-danger {
+    -fx-background-color: -surface;
+    -fx-text-fill: -brick;
+    -fx-border-color: -brick;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+}
+.btn-danger:hover { -fx-background-color: -brick-tint; }
+
+.btn-ghost {
+    -fx-background-color: transparent;
+    -fx-text-fill: -steel;
+    -fx-underline: false;
+}
+.btn-ghost:hover { -fx-text-fill: -amber-dark; }
+
+/* ---------------------------------------------------------------------- */
+/* Inputs                                                                   */
+/* ---------------------------------------------------------------------- */
+
+.text-field, .password-field, .combo-box, .date-picker {
+    -fx-background-color: -surface;
+    -fx-border-color: -border-strong;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px 10px;
+    -fx-font-size: 13px;
+    -fx-prompt-text-fill: -ink-faint;
+}
+.text-field:focused, .password-field:focused, .combo-box:focused, .date-picker:focused {
+    -fx-border-color: -amber;
+}
+.combo-box .list-cell { -fx-text-fill: -ink; -fx-padding: 6px 8px; }
+.date-picker .arrow-button, .combo-box .arrow-button { -fx-background-color: transparent; }
+
+.field-label {
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ink-soft;
+}
+
+/* ==========================================================================
+   MODERN TABLES (CLEAN & BORDERLESS BETWEEN COLUMNS)
+   ========================================================================== */
+.table-view {
+    -fx-background-color: transparent;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 1px;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+}
+.table-view .column-header-background {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: transparent transparent #e2e8f0 transparent;
+}
+.table-view .column-header {
+    -fx-background-color: transparent;
+    -fx-size: 38px;
+}
+.table-view .column-header .label {
+    -fx-text-fill: #64748b;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+.table-row-cell {
+    -fx-cell-size: 36px;
+    -fx-background-color: #ffffff;
+    -fx-border-color: transparent transparent #f1f5f9 transparent;
+}
+.table-row-cell:odd {
+    -fx-background-color: #fafafa;
+}
+.table-row-cell:filled:hover {
+    -fx-background-color: #f1f5f9;
+}
+/* ==========================================================================
+   MODERNISASI GRAFIK GLOBAL (BARCHART & PIECHART)
+   ========================================================================== */
+
+/* Hapus border kotak default dan background bawaan chart */
+.chart {
+    -fx-padding: 10px;
+    -fx-background-color: transparent;
+}
+
+.chart-content {
+    -fx-padding: 10px;
+}
+
+/* Buat background plot area menjadi transparan total */
+.chart-plot-background {
+    -fx-background-color: transparent;
+}
+
+/* Tipiskan dan samarkan garis grid horizontal & vertikal */
+.chart-vertical-grid-lines, 
+.chart-horizontal-grid-lines {
+    -fx-stroke: #f1f5f9; /* Abu-abu super lembut */
+    -fx-stroke-dash-array: 4px; /* Efek garis putus-putus minimalis */
+    -fx-stroke-width: 1px;
+}
+
+/* Style untuk teks label sumbu X dan Y */
+.axis {
+    -fx-tick-label-fill: #64748b; /* Warna abu-abu slate modern */
+    -fx-font-family: "Segoe UI", system-ui, sans-serif;
+    -fx-font-size: 11px;
+}
+.axis-label {
+    -fx-text-fill: #475569;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+/* Menghilangkan garis sumbu utama yang kaku */
+.axis:bottom {
+    -fx-border-color: #e2e8f0 transparent transparent transparent;
+}
+.axis:left {
+    -fx-border-color: transparent transparent transparent transparent;
+}
+
+/* ==========================================================================
+   1. STYLE SPECIFIC: TREN PENDAPATAN HARIAN (BAR CHART)
+   ========================================================================== */
+
+/* Mengubah batang menjadi warna Oranye Akaroto dengan sudut melengkung halus */
+.default-color0.chart-bar {
+    -fx-bar-fill: #f97316; /* Warna oranye brand */
+    -fx-background-radius: 6px 6px 0 0; /* Membuat ujung atas batang melengkung modis */
+    -fx-background-insets: 0 4 0 4; /* Memberi space/jarak antar batang agar tidak terlalu rapat */
+}
+
+/* Efek interaktif saat batang di-hover kursor mouse */
+.default-color0.chart-bar:hover {
+    -fx-bar-fill: #9f4504; /* Oranye lebih gelap */
+    -fx-cursor: hand;
+}
+
+/* ==========================================================================
+   2. STYLE SPECIFIC: KOMPOSISI PENGELUARAN (PIE CHART)
+   ========================================================================== */
+
+/* Menghilangkan border putih tebal di sekeliling potongan pie */
+.chart-pie {
+    -fx-border-color: #ffffff;
+    -fx-border-width: 2px; /* Border putih tipis sebagai pemisah elegan */
+    -fx-background-insets: 0;
+}
+
+/* Penataan Warna Potongan Pie (Data ke-1, ke-2, dst) */
+.default-color0.chart-pie { -fx-pie-color: #e2e8f0; } /* Warna dasar netral (Gaji/Stok) */
+.default-color1.chart-pie { -fx-pie-color: #f97316; } 
+.default-color2.chart-pie { -fx-pie-color: #3b82f6; }
+
+/* Teks label nama data di dalam Pie Chart */
+.chart-pie-label {
+    -fx-fill: #334155;
+    -fx-font-size: 11px;
+    -fx-font-family: "Segoe UI", sans-serif;
+}
+
+/* Merapikan tampilan Kotak Legenda di bawah Pie Chart */
+.chart-legend {
+    -fx-background-color: #f8fafc;
+    -fx-background-radius: 8px;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 8px;
+    -fx-padding: 8px 14px;
+}
+.chart-legend-item {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 11px;
+}
+.chart-legend-item-symbol {
+    -fx-background-radius: 4px; /* Mengubah simbol bulat menjadi kotak tumpul modern */
+}
+/* ---------------------------------------------------------------------- */
+/* Stat / KPI cards (Dashboard)                                            */
+/* ---------------------------------------------------------------------- */
+
+/* Kartu Kas Masuk Modern */
+.stat-card-in {
+    -fx-background-color: #f0fdf4; /* Hijau pastel sangat tipis */
+    -fx-border-color: transparent transparent transparent #22c55e; /* Garis aksen kiri saja */
+    -fx-border-width: 0 0 0 4px;
+    -fx-background-radius: 0 8 8 0;
+    -fx-padding: 16 20 16 20;
+}
+.stat-value-in {
+    -fx-text-fill: #15803d; /* Hijau gelap tegas untuk angka */
+    -fx-font-size: 24px;
+    -fx-font-weight: 800;
+}
+
+/* Kartu Kas Keluar Modern */
+.stat-card-out {
+    -fx-background-color: #fef2f2; /* Merah pastel sangat tipis */
+    -fx-border-color: transparent transparent transparent #ef4444; /* Garis aksen kiri saja */
+    -fx-border-width: 0 0 0 4px;
+    -fx-background-radius: 0 8 8 0;
+    -fx-padding: 16 20 16 20;
+}
+.stat-value-out {
+    -fx-text-fill: #b91c1c; /* Merah gelap tegas untuk angka */
+    -fx-font-size: 24px;
+    -fx-font-weight: 800;
+}
+.stat-card-bersih {
+    -fx-background-color: #f7f7f7; /* Hijau pastel sangat tipis */
+    -fx-border-color: transparent transparent transparent #737272; /* Garis aksen kiri saja */
+    -fx-border-width: 0 0 0 4px;
+    -fx-background-radius: 0 8 8 0;
+    -fx-padding: 16 20 16 20;
+}
+.stat-value-bersih {
+    -fx-text-fill: #737272; /* Hijau gelap tegas untuk angka */
+    -fx-font-size: 24px;
+    -fx-font-weight: 800;
+}
+/* Perbaikan untuk Kartu Kas Masuk */
+.stat-card-in .label {
+    -fx-text-fill: #16a34a; /* Ganti dengan warna hijau tua agar terbaca jelas */
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+}
+.stat-card-in .stat-value-in {
+    -fx-text-fill: #15803d; /* Angka nominal tetap hijau gelap tegas */
+    -fx-font-size: 24px;
+    -fx-font-weight: 800;
+}
+
+/* Perbaikan untuk Kartu Kas Keluar */
+.stat-card-out .label {
+    -fx-text-fill: #dc2626; /* Ganti dengan warna merah tua agar terbaca jelas */
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+}
+.stat-card-out .stat-value-out {
+    -fx-text-fill: #b91c1c; /* Angka nominal tetap merah gelap tegas */
+    -fx-font-size: 24px;
+    -fx-font-weight: 800;
+}
+.stat-card-bersih .label {
+    -fx-text-fill: #737272; /* Ganti dengan warna hijau tua agar terbaca jelas */
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+}
+.stat-card-bersih .stat-value-bersih {
+    -fx-text-fill: #737272; /* Angka nominal tetap merah gelap tegas */
+    -fx-font-size: 24px;
+    -fx-font-weight: 800;
+}
+
+/* Update kartu kas masuk & keluar agar memiliki shadow tipis yang mewah */
+.stat-card-in, .stat-card-out, .stat-card-bersih{
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.04), 12, 0, 0, 4);
+    -fx-transition: all 0.3s ease;
+}
+
+/* Sedikit efek dinamis saat kursor mouse melewati kartu */
+.stat-card-in:hover, .stat-card-out:hover, .stat-card-bersih:hover {
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.08), 16, 0, 0, 6);
+}
+
+/* ---------------------------------------------------------------------- */
+/* ScrollPane / misc                                                       */
+/* ---------------------------------------------------------------------- */
+
+/* Hubungkan langsung ke styleClass="scroll-pane" milik Dashboard */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent; /* Menghilangkan background abu-abu bawaan ScrollPane */
+    -fx-border-color: transparent;
+    -fx-border-width: 0px;
+    -fx-padding: 0px; /* Menghilangkan sela/sekat putih di pinggir layar */
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+/* Buka file style.css kamu dan tambahkan kodingan ini di bagian bawah */
+.sidebar {
+    -fx-background-color: -steel-dark;
+    
+    /* Menambahkan garis vertikal penanda di sisi kanan sidebar agar tidak nabrak */
+    -fx-border-color: transparent #2c3f4e transparent transparent;
+    -fx-border-width: 0 1px 0 0;
+}
+.btn-action-icon {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 2 6 2 6;
+    -fx-font-size: 14px;
+}
+.btn-action-icon:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+    -fx-background-radius: 4;
+}
+/* Sempurnakan tombol aksi utama di form kasir */
+.btn-secondary-modern {
+    -fx-background-color: white;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-text-fill: #334155;
+    -fx-cursor: hand;
+    -fx-padding: 8 16 8 16;
+}
+.btn-secondary-modern:hover {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #94a3b8;
+}
+
+/* Modifikasi kotak total bayar agar eye-catching */
+.total-bayar-box {
+    -fx-background-color: #1e293b; /* Warna gelap kontras */
+    -fx-padding: 12 24 12 24;
+    -fx-background-radius: 8;
+}
+.total-bayar-box .label-title {
+    -fx-text-fill: #94a3b8;
+    -fx-font-size: 11px;
+}
+.total-bayar-box .label-amount {
+    -fx-text-fill: #f59e0b; /* Warna emas/orange menyala */
+    -fx-font-size: 28px;
+    -fx-font-weight: 900;
+}
+/* ==========================================================================
+   MODERN DATE PICKER (CLEAN & MINIMALIST)
+   ========================================================================== */
+
+/* Kontainer Utama DatePicker */
+.date-picker {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #cbd5e1; /* Warna border abu-abu tipis & bersih */
+    -fx-border-width: 1px;
+    -fx-padding: 0; /* Hilangkan padding luar agar tidak double border */
+    -fx-alignment: center;
+}
+
+/* Hover state saat kursor mendekati field */
+.date-picker:hover {
+    -fx-border-color: #94a3b8;
+}
+
+/* Focused state saat kolom aktif / diklik */
+.date-picker:focused,
+.date-picker:focused-within {
+    -fx-border-color: #d97706; /* Aksen warna Oranye Akaroto */
+    /* Efek glow tipis modern di sekeliling kotak */
+    -fx-effect: dropshadow(three-pass-box, rgba(217, 119, 6, 0.15), 5, 0, 0, 0);
+}
+
+/* ── INTERIOR TEXT FIELD (Kunci Menghilangkan Double Border) ── */
+.date-picker > .text-field {
+    -fx-background-color: transparent !important; /* Buat background transparan */
+    -fx-background-insets: 0 !important;
+    -fx-background-radius: 8px 0 0 8px !important;
+    -fx-border-color: transparent !important; /* HAPUS BORDER DALAM */
+    -fx-text-fill: #334155;
+    -fx-font-size: 13px;
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-padding: 8px 12px; /* Padding ideal agar teks tidak menempel ke garis */
+}
+
+/* ── TOMBOL IKON KALENDER ── */
+.date-picker > .button {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0 8px 8px 0;
+    -fx-cursor: hand;
+    -fx-padding: 0 12px 0 4px;
+}
+
+.date-picker > .button:hover {
+    -fx-background-color: #f1f5f9; /* Efek highlight abu-abu lembut saat tombol di-hover */
+}
+
+/* Mengubah warna ikon kalender bawaan menjadi abu-abu arang modern */
+.date-picker > .button > .graphic {
+    -fx-background-color: #64748b;
+}
+.date-picker:focused > .button > .graphic {
+    -fx-background-color: #d97706; /* Ikon ikut berubah jingga saat aktif */
+}
+
+/* ── LABEL KETERANGAN DI ATASNYA ── */
+.field-label {
+    -fx-text-fill: #64748b;
+    -fx-font-weight: 700;
+    -fx-font-size: 11px;
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-letter-spacing: 0.5px;
+}
