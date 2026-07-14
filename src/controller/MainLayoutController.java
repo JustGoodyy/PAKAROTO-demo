@@ -46,7 +46,7 @@ public class MainLayoutController {
 
         applyRoleRestrictions();
 
-        loadView("/view/Dashboard.fxml"); // Dashboard greets the user first, per spec
+        loadView("/view/Dashboard.fxml"); 
     }
     
 

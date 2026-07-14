@@ -36,7 +36,7 @@
             <VBox fx:id="sidebarMenuBox" spacing="0" stylesheets="@../css/style.css">
                 <padding><Insets bottom="10" top="10" /></padding>
                 
-                <Button onAction="#goToDashboard" styleClass="nav-button" text="Dashboard">
+                <Button fx:id="btnDashboard" onAction="#goToDashboard" styleClass="nav-button" text="Dashboard">
                     <graphic>
                         <ImageView fitHeight="18" fitWidth="18" preserveRatio="true">
                             <image>
@@ -46,7 +46,7 @@
                     </graphic>
                 </Button>
                 
-                <Button onAction="#goToInventory" styleClass="nav-button" text="Inventaris Spare Part">
+                <Button fx:id="btnInventory" onAction="#goToInventory" styleClass="nav-button" text="Inventaris Spare Part">
                     <graphic>
                         <ImageView fitHeight="18" fitWidth="18" preserveRatio="true">
                             <image>
@@ -56,7 +56,7 @@
                     </graphic>
                 </Button>
                 
-                <Button onAction="#goToCashier" styleClass="nav-button" text="Transaksi Kas">
+                <Button fx:id="btnCashier" onAction="#goToCashier" styleClass="nav-button" text="Transaksi Kas">
                     <graphic>
                         <ImageView fitHeight="18" fitWidth="18" preserveRatio="true">
                             <image>
@@ -66,7 +66,7 @@
                     </graphic>
                 </Button>
                 
-                <Button onAction="#goToReport" styleClass="nav-button" text="Laporan Keuangan">
+                <Button fx:id="btnReport" onAction="#goToReport" styleClass="nav-button" text="Laporan Keuangan">
                     <graphic>
                         <ImageView fitHeight="18" fitWidth="18" preserveRatio="true">
                             <image>
